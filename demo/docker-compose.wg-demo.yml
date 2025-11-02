@@ -27,7 +27,7 @@ services:
       - PGID=1000
       - TZ=Europe/Zurich
     volumes:
-      - ./wg-server:/config
+      - ./local/wg-server:/config
     ports:
       - "51820:51820/udp"
     restart: unless-stopped
