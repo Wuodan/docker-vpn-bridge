@@ -1,9 +1,9 @@
-
 # docker-vpn-bridge
 
 Give Docker containers access to one internal VPN‑only service **without using host‑network mode**.
 
-That’s it. No tricks. No weird networking flags. Just a tiny bridge so your containers can talk to something inside a corporate VPN.
+That’s it. No tricks. No weird networking flags. Just a tiny bridge so your containers can talk to something inside a
+corporate VPN.
 
 ---
 
@@ -63,26 +63,29 @@ The host forwards traffic into the VPN.
 
 ## Quick start (Linux + Docker)
 
-Goal: container reaches `10.7.2.100:8080`
+Goals:
+
+- container reaches `10.7.2.100:8080`
+- VPN bridge is not available outside the host
 
 ### docker-compose.yml
 
-```yaml
-services:
-  vpn-forwarder:
-    image: alpine/socat
-    container_name: vpn-forwarder
-    network_mode: host
-    environment:
-      LOCAL_PORT: "18080"
-      TARGET_IP: "10.7.2.100"
-      TARGET_PORT: "8080"
-      DOCKER_BRIDGE_IP: "172.17.0.1"  # run `ip addr` to confirm
-    command:
-      - "TCP-LISTEN:${LOCAL_PORT},bind=${DOCKER_BRIDGE_IP},reuseaddr,fork"
-      - "TCP:${TARGET_IP}:${TARGET_PORT}"
-    restart: unless-stopped
+#### Docker bridge IP (docker0)
+
+This uses the **Docker bridge IP** (docker0) which is host-internal.  
+Normally this is 172.17.0.1, read it with:
+
+```bash
+ip -4 addr show docker0 | awk '/inet /{print $2}' | cut -d/ -f1
 ```
+
+#### .env file
+
+Copy the [.env](.env) file and replace the values as needed.
+
+#### docker-compose.yml file
+
+Copy the [docker-compose.yml](docker-compose.yml) file to the same location.
 
 ### Run
 
@@ -99,7 +102,8 @@ curl http://172.17.0.1:18080/
 ### Test from another container
 
 ```bash
-curl http://172.17.0.1:18080/
+docker run --rm curlimages/curl:latest \
+   -sS -m 5 http://172.17.0.1:18080/
 ```
 
 Done. No `--network host` needed for your real containers.
@@ -120,28 +124,29 @@ Then containers talk to:
 http://host.docker.internal:PORT
 ```
 
-Docker‑inside‑Windows forwarding works only if the VPN allows NAT through the Docker VM. Many corporate VPNs don’t. Use `netsh` instead.
+Docker‑inside‑Windows forwarding works only if the VPN allows NAT through the Docker VM. Many corporate VPNs don’t. Use
+`netsh` instead.
 
 ---
 
 ## Troubleshooting
 
-| Problem | Meaning |
-|---|---|
-`curl localhost:18080` fails but bridge IP works | You bound only to Docker bridge. That’s intentional. |
-Windows container can't reach VPN IP | Use `netsh portproxy` |
-Container hits proxy but VPN service won't reply | Corporate VPN blocks container namespace traffic (expected) |
+| Problem                                          | Meaning                                                     |
+|--------------------------------------------------|-------------------------------------------------------------|
+ `curl localhost:18080` fails but bridge IP works | You bound only to Docker bridge. That’s intentional.        |
+ Windows container can't reach VPN IP             | Use `netsh portproxy`                                       |
+ Container hits proxy but VPN service won't reply | Corporate VPN blocks container namespace traffic (expected) |
 
 ---
 
 ## Status matrix
 
-| Platform | Method | Result |
-|---|---|---|
-Linux | Docker host‑net bridge | ✅ Works |
-Linux | systemd + socat | ✅ Works |
-Windows | netsh forward | ✅ Works |
-Windows | Docker forwarder | ⚠️ Sometimes (depends on VPN) |
+| Platform | Method                 | Result                        |
+|----------|------------------------|-------------------------------|
+ Linux    | Docker host‑net bridge | ✅ Works                       |
+ Linux    | systemd + socat        | ✅ Works                       |
+ Windows  | netsh forward          | ✅ Works                       |
+ Windows  | Docker forwarder       | ⚠️ Sometimes (depends on VPN) |
 
 ---
 

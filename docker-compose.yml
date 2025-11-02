@@ -1,7 +1,7 @@
 services:
-  vpn-forwarder:
+  vpn-bridge:
     image: alpine/socat
-    container_name: vpn-forwarder
+    container_name: vpn-bridge
     network_mode: host
     ports:
       - "127.0.0.1:${LOCAL_PORT}:${LOCAL_PORT}/tcp"
