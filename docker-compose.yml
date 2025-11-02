@@ -1,0 +1,12 @@
+services:
+  vpn-forwarder:
+    image: alpine/socat
+    container_name: vpn-forwarder
+    network_mode: host
+    ports:
+      - "127.0.0.1:${LOCAL_PORT}:${LOCAL_PORT}/tcp"
+    command:
+      - "TCP-LISTEN:${LOCAL_PORT},bind=${DOCKER_BRIDGE_IP},reuseaddr,fork"
+      - "TCP:${TARGET_IP}:${TARGET_PORT}"
+    restart: unless-stopped
+
