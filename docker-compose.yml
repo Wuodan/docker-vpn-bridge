@@ -9,4 +9,3 @@ services:
       - "TCP-LISTEN:${LOCAL_PORT},bind=${DOCKER_BRIDGE_IP},reuseaddr,fork"
       - "TCP:${TARGET_IP}:${TARGET_PORT}"
     restart: unless-stopped
-

@@ -3,32 +3,18 @@
 Give Docker containers access to one internal VPN‑only service **without using host‑network mode**.
 
 That’s it. No tricks. No weird networking flags. Just a tiny bridge so your containers can talk to something inside a
-corporate VPN.
+VPN.
 
 ---
 
 ## Why this exists
 
-Some VPNs:
+By default, docker containers cannot access a VPN the host is on.
 
-- run only on the host
-- require browser login + MFA (SMS / Authenticator)
-- break if you try to run them inside Docker
-- block traffic unless it originates from the host network namespace
+The simple solution to run the container on the host network with `docker run --net host`:
 
-So your containers suddenly can’t reach `10.x.x.x` or `internal.company.local`.
-
-Traditionally you'd use:
-
-```
-docker run --network host  # ugh
-```
-
-But that exposes everything and often breaks Compose setups.
-
-This project gives you a **safer, minimal alternative**:
-forward *one local port → one VPN IP:PORT*  
-and let containers use that port normally.
+- has to be applied to every single container
+- is sometimes not feasible (container started from an IDE plugin)
 
 ---
 
@@ -36,9 +22,8 @@ and let containers use that port normally.
 
 - ✅ Containers can reach one VPN‑internal endpoint
 - ✅ No `--network host` for your app containers
-- ✅ Works with browser‑based VPN logins
-- ✅ Linux & Windows instructions
 - ✅ Transparent, tiny, easy to debug
+- ✅ Does not expose VPN to outside host
 
 What this is **not**:
 
@@ -56,8 +41,12 @@ Just a **port bridge**.
 Container ▶ http://172.17.0.1:18080  ──► Host VPN ──► 10.7.2.100:8080
 ```
 
-Containers use the Docker bridge IP.  
+Containers use the Docker bridge IP `172.17.0.1`.  
 The host forwards traffic into the VPN.
+
+> These examples demonstrate how to reach http://10.7.2.100:8080 and the endpoint `/v1/models` on it.  
+> http://10.7.2.100:8080 is an LLM server in a VPN and shows its models with `/v1/models`.  
+> You can adapt this to your needs!
 
 ---
 
@@ -65,8 +54,38 @@ The host forwards traffic into the VPN.
 
 Goals:
 
-- container reaches `10.7.2.100:8080`
+- containers reach `10.7.2.100:8080` on VPN
 - VPN bridge is not available outside the host
+
+### docker run
+
+Set target ip and port plus local port:
+
+```bash
+export TARGET_IP=10.7.2.100
+export TARGET_PORT=8080
+
+export LOCAL_PORT=18080
+```
+
+Set **Docker bridge IP** (docker0)
+```bash
+export DOCKER_BRIDGE_IP=$(ip -4 addr show docker0 | awk '/inet /{print $2}' | cut -d/ -f1)
+```
+
+Start the container
+
+```bash
+docker run -d \
+  --name vpn-bridge \
+  --network host \
+  -p 127.0.0.1:${LOCAL_PORT}:${LOCAL_PORT}/tcp \
+  alpine/socat \
+  TCP-LISTEN:${LOCAL_PORT},bind=${DOCKER_BRIDGE_IP},reuseaddr,fork \
+  TCP:${TARGET_IP}:${TARGET_PORT}
+```
+
+> Run the commands in [Testing](#testing) to see if it works.
 
 ### docker-compose.yml
 
@@ -87,23 +106,25 @@ Copy the [.env](.env) file and replace the values as needed.
 
 Copy the [docker-compose.yml](docker-compose.yml) file to the same location.
 
-### Run
+#### Run
 
 ```bash
 docker compose up -d
 ```
 
-### Test from host
+### Testing
+
+#### Test from host
 
 ```bash
-curl http://172.17.0.1:18080/
+curl http://172.17.0.1:18080/v1/models
 ```
 
-### Test from another container
+#### Test from another container
 
 ```bash
 docker run --rm curlimages/curl:latest \
-   -sS -m 5 http://172.17.0.1:18080/
+   -sS -m 5 http://172.17.0.1:18080/v1/models
 ```
 
 Done. No `--network host` needed for your real containers.
