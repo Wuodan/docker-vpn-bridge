@@ -130,6 +130,37 @@ docker compose down
 
 ---
 
+### Linux bare‑metal (no Docker)
+
+Same concept, but run `socat` directly on the host to forward one port from VPN into the local machine.
+
+Install `socat`:
+
+```bash
+sudo apt install socat  # or apk/yum/dnf
+```
+
+Run `socat`:
+
+```bash
+TARGET_IP=10.7.2.100
+TARGET_PORT=8080
+LOCAL_PORT=18080
+DOCKER_BRIDGE_IP=$(ip -4 addr show docker0 | awk '/inet /{print $2}' | cut -d/ -f1)
+
+nohup sudo socat TCP4-LISTEN:${LOCAL_PORT},bind=${DOCKER_BRIDGE_IP},reuseaddr,fork \
+  TCP4:${TARGET_IP}:${TARGET_PORT} \
+  >/tmp/socat.log 2>/tmp/socat.err &
+```
+
+> Run the commands in [Testing](#testing) to see if it works.
+
+Teardown:
+
+```bash
+sudo pkill -f "socat TCP4-LISTEN:${LOCAL_PORT}"
+```
+
 ## Windows notes (untested)
 
 Windows approach (untested):
@@ -172,8 +203,8 @@ Done. No `--network host` needed for your real containers.
 
 | Problem                                          | Meaning                                              |
 |--------------------------------------------------|------------------------------------------------------|
- `curl localhost:18080` fails but bridge IP works | You bound only to Docker bridge. That’s intentional. |
- Windows container can't reach VPN IP             | Use `netsh portproxy`                                |
+| `curl localhost:18080` fails but bridge IP works | You bound only to Docker bridge. That’s intentional. |
+| Windows container can't reach VPN IP             | Use `netsh portproxy`                                |
 
 ---
 
@@ -181,7 +212,7 @@ Done. No `--network host` needed for your real containers.
 
 | Platform | Method                 | Result     |
 |----------|------------------------|------------|
- Linux    | Docker host‑net bridge | ✅ Works    |
- Linux    | systemd + socat        | ❓ Untested |
- Windows  | netsh forward          | ❓ Untested |
- Windows  | Docker forwarder       | ❓ Untested |
+| Linux    | Docker host‑net bridge | ✅ Works    |
+| Linux    | Bare‑metal (socat)     | ✅ Works    |
+| Windows  | netsh forward          | ❓ Untested |
+| Windows  | Docker forwarder       | ❓ Untested |
