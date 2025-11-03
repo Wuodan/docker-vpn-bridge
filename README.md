@@ -66,7 +66,45 @@ Normally this is 172.17.0.1, read it with:
 ip -4 addr show docker0 | awk '/inet /{print $2}' | cut -d/ -f1
 ```
 
-#### Docker run
+#### docker-compose.yml (socat)
+
+This is a simple relay with socat.
+
+Use when everything works. If not use the [docker-compose.yml (mitmproxy with Web-UI)](#docker-composeyml-mitmproxy-with-web-ui) setup to see traffic
+
+##### .env file
+
+Edit the [.env](.env) file and replace the values as needed.
+
+##### Run
+
+```bash
+docker compose up -d
+```
+
+> Run the commands in [Testing](#testing) to see if it works.
+
+Teardown:
+
+```bash
+docker compose down
+```
+
+#### docker-compose.yml (mitmproxy with Web-UI)
+
+This uses a HTTP proxy which shows request/responses in a web UI on [localhost:18083](open http://127.0.0.1:18083) with password `ChangeMe`.
+
+For details see [README-proxied.md](README-proxied.md).
+
+##### Run
+
+```bash
+docker compose -f docker-compose-proxied.yml up -d
+```
+
+#### Docker run (socat)
+
+Use this if you prefer to run containers directly without docker-compose.
 
 Set target IP/port and the local bridge port:
 
@@ -102,30 +140,6 @@ Teardown:
 
 ```bash
 docker rm -f vpn-bridge
-```
-
-#### docker-compose.yml
-
-##### .env file
-
-Copy the [.env](.env) file and replace the values as needed.
-
-##### docker-compose.yml file
-
-Copy the [docker-compose.yml](docker-compose.yml) file to the same location.
-
-##### Run
-
-```bash
-docker compose up -d
-```
-
-> Run the commands in [Testing](#testing) to see if it works.
-
-Teardown:
-
-```bash
-docker compose down
 ```
 
 ---
