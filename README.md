@@ -57,6 +57,15 @@ Container ▶ http://172.17.0.1:18080  ──► Host VPN ──► 10.7.2.100:8
 Containers use the Docker bridge IP `172.17.0.1`.  
 The host forwards traffic into the VPN.
 
+#### Docker bridge IP (docker0)
+
+This uses the Docker bridge IP (docker0) which is host‑internal.  
+Normally this is 172.17.0.1, read it with:
+
+```bash
+ip -4 addr show docker0 | awk '/inet /{print $2}' | cut -d/ -f1
+```
+
 #### Docker run
 
 Set target IP/port and the local bridge port:
@@ -96,15 +105,6 @@ docker rm -f vpn-bridge
 ```
 
 #### docker-compose.yml
-
-##### Docker bridge IP (docker0)
-
-This uses the Docker bridge IP (docker0) which is host‑internal.  
-Normally this is 172.17.0.1, read it with:
-
-```bash
-ip -4 addr show docker0 | awk '/inet /{print $2}' | cut -d/ -f1
-```
 
 ##### .env file
 
