@@ -1,41 +1,16 @@
 services:
-  vpn-bridge:
-    image: alpine/socat
-    container_name: vpn-bridge
-    network_mode: host
-    # Forwarder used by both direct and logged paths.
-    # Listens on the Docker bridge so containers can reach it;
-    # host can also use this address.
-    command:
-      - "TCP-LISTEN:${LOCAL_PORT},bind=${DOCKER_BRIDGE_IP},reuseaddr,fork"
-      - "TCP:${TARGET_IP}:${TARGET_PORT}"
-    restart: unless-stopped
-
-  mitmproxy-web:
+  mitm-forward:
     image: mitmproxy/mitmproxy:latest
-    container_name: mitmproxy-web
+    container_name: mitm-forward
     network_mode: host
-    # Reverse proxy to the vpn-bridge, but keep both proxy and UI local-only.
+    # Proxy listener reachable from host and containers via DOCKER_BRIDGE_IP:LOCAL_PORT
+    # Web UI is bound to loopback only (host-only)
     command: >
       mitmweb
-        --mode reverse:http://${DOCKER_BRIDGE_IP}:${LOCAL_PORT}
-        --listen-host 127.0.0.1
-        --listen-port ${MITM_LISTEN_PORT}
+        --mode reverse:http://${TARGET_IP}:${TARGET_PORT}
+        --listen-host ${DOCKER_BRIDGE_IP}
+        --listen-port ${LOCAL_PORT}
         --web-host 127.0.0.1
         --web-port ${MITM_WEB_PORT}
         --set web_password='${MITM_WEB_PASSWORD:-ChangeMe}'
     restart: unless-stopped
-    depends_on:
-      - vpn-bridge
-
-  vpn-bridge-logged:
-    image: alpine/socat
-    container_name: vpn-bridge-logged
-    network_mode: host
-    # Logged path entrypoint: forwards to mitmproxy's local-only listener.
-    command:
-      - "TCP-LISTEN:${LOCAL_LOG_PORT},bind=${DOCKER_BRIDGE_IP},reuseaddr,fork"
-      - "TCP:127.0.0.1:${MITM_LISTEN_PORT}"
-    restart: unless-stopped
-    depends_on:
-      - mitmproxy-web

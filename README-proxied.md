@@ -1,62 +1,68 @@
-# vpn-bridge + mitmproxy (mitm → bridge → target)
+# mitmproxy as forwarder (replaces socat)
 
-**Purpose:** Forward traffic to a VPN-only target via `socat`, with an optional logging path through `mitmproxy`. Nothing from mitm is reachable off-host.
+## What this does
 
-## Variables
+- mitmproxy listens on `${DOCKER_BRIDGE_IP}:${LOCAL_PORT}` and forwards to `${TARGET_IP}:${TARGET_PORT}`.
+- mitm web UI is on `http://127.0.0.1:${MITM_WEB_PORT}` (host-only).
+- No ports exposed off-host (proxy listener binds to the host's docker-bridge IP).
 
-See the comments in the [.env](.env) file.
+## When this works
 
-## How it flows
+- Target service is HTTP (or HTTP-like). mitmproxy is an HTTP proxy/reverse proxy.
+- Clients connect over HTTP to the proxy endpoint (containers use `http://${DOCKER_BRIDGE_IP}:${LOCAL_PORT}`; host can
+  also use that address).
 
-### Direct path (no logging)
-```
-host or container
-  |
-  |  (host: http://172.17.0.1:18080)
-  |  (ctr : http://172.17.0.1:18080)
-  v
-[socat vpn-bridge @ 172.17.0.1:18080]
-  |
-  v
-[target 10.7.2.100:8080]
-```
+## Limitations / caveats
 
-### Logged path (mitm → bridge → target)
-```
-host or container
-  |
-  |  (host: http://172.17.0.1:18081)
-  |  (ctr : http://172.17.0.1:18081)
-  v
-[socat vpn-bridge-logged @ 172.17.0.1:18081]
-  |
-  v
-[mitmproxy listen 127.0.0.1:8080] --reverse--> [vpn-bridge 172.17.0.1:18080] --> [target 10.7.2.100:8080]
+- mitmproxy is NOT a generic raw TCP forwarder. If the target speaks non-HTTP protocols, stick with socat.
+- For HTTPS interception, clients must trust mitmproxy CA or you must use TLS passthrough (`--mode reverse:https://...`)
+  without interception.
+- `network_mode: host` and binding to `${DOCKER_BRIDGE_IP}` assumes Linux; Docker Desktop behaves differently on
+  macOS/Windows.
 
-mitm UI (host only): http://127.0.0.1:8081  (password required)
-```
+## Usage
 
-## Quick tests
-```
-# DIRECT (host):
-curl -sS http://172.17.0.1:18080
+### .env file
 
-# LOGGED (host, goes via mitm):
-curl -sS http://172.17.0.1:18081
+Copy the [.env](.env) file and replace the values as needed.
 
-# DIRECT (from a container):
-docker run --rm curlimages/curl:8.11.1 -sS http://172.17.0.1:18080
+##### docker-compose.yml file
 
-# LOGGED (from a container):
-docker run --rm curlimages/curl:8.11.1 -sS http://172.17.0.1:18081
+Copy the [docker-compose.yml](docker-compose.yml) file to the same location.
 
-# mitm UI (host only):
-# open in browser: http://127.0.0.1:8081
+### Run
+
+```bash
+docker compose -f docker-compose-proxied.yml up -d
 ```
 
-## Short technical notes
-- `network_mode: host` gives containers access to the host’s VPN routing; nothing is exposed off-host because mitm binds to `127.0.0.1`.
-- `vpn-bridge` binds on `DOCKER_BRIDGE_IP` so **containers** can reach it; the host can also use that address.
-- Logged path uses `vpn-bridge-logged` → `mitmproxy(127.0.0.1:8080)` → `vpn-bridge(172.17.0.1:18080)` → target.
-- Avoid loops: mitm’s `--mode reverse:` points to the **direct** bridge (`172.17.0.1:18080`), never to its own listen port.
-- On macOS/Windows Docker Desktop, `network_mode: host` differs or is unsupported; this layout targets Linux.
+> Run the commands in [Testing](#testing) to see if it works.
+
+### Teardown:
+
+```bash
+docker compose down
+```
+
+---
+
+## Testing
+
+### Test from host
+
+```bash
+curl http://172.17.0.1:18080/v1/models
+```
+
+### Test from another container
+
+```bash
+docker run --rm curlimages/curl:latest \
+   -sS -m 5 http://172.17.0.1:18080/v1/models
+```
+
+### Mitm UI
+
+```bash
+open http://127.0.0.1:18083
+```
