@@ -1,0 +1,13 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "forkProcessing": "enabled",
+  "enabledManagers": ["docker-compose", "dockerfile"],
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "matchManagers": ["docker-compose", "dockerfile"],
+      "groupName": "docker",
+      "minimumReleaseAge": "3 days"
+    }
+  ]
+}
